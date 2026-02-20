@@ -1,5 +1,6 @@
 <script lang="ts">
 	import { page } from '$app/stores';
+	const userLoggedIn = true; // TODO : check if user is logged in
 </script>
 
 <div
