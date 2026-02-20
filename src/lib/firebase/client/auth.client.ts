@@ -1,8 +1,5 @@
 /* eslint-disable svelte/no-navigation-without-resolve */
-import {
-  AUTH,
-  DB
-} from '$lib/firebase/client/config.client';
+import { AUTH, DB } from '$lib/firebase/client/config.client';
 import {
 	createUserWithEmailAndPassword,
 	signInWithEmailAndPassword,
@@ -11,12 +8,7 @@ import {
 	onAuthStateChanged,
 	type User
 } from 'firebase/auth';
-import {
-	doc,
-	getDoc,
-	setDoc,
-	updateDoc
-} from 'firebase/firestore';
+import { doc, getDoc, setDoc, updateDoc, collection } from 'firebase/firestore';
 
 import { goto } from '$app/navigation';
 
@@ -84,10 +76,10 @@ export async function updateUserProfile(updates: Partial<UserProfile>, user: Use
 
 export async function logout() {
 	await signOut(AUTH);
-	await goto('/');
 }
 
-// This is used inside the store
 export function useAuthListener(callback: (user: User | null) => void) {
 	return onAuthStateChanged(AUTH, callback);
 }
+
+export const postCollection = collection(DB, 'posts');
