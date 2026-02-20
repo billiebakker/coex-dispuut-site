@@ -75,7 +75,7 @@
 			submitting = false;
 			alertVariant = 'bg-red-500';
 			alertMessage = isLogin
-				? 'Verkeerde gegevens!!! Probeer nog eens'
+				? 'Verkeerde gegevens!! Probeer nog eens'
 				: 'Er is een fout opgetreden :(((';
 			console.error(error);
 			return;
@@ -121,7 +121,7 @@
 				{#if !isLogin}
 					<div class="w-full">
 						<label
-							class="outline-main-medium-gray flex h-10.5 w-full items-center rounded-[5px] bg-white px-3.5! py-1.25 outline-2"
+							class="outline-main-medium-gray flex h-10.5 w-full items-center rounded-[5px] bg-white px-3.5 py-1.25 outline-2"
 						>
 							<input
 								name="name"
@@ -141,7 +141,7 @@
 				<!-- EMAIL -->
 				<div class="w-full">
 					<label
-						class="outline-main-medium-gray flex h-10.5 w-full items-center rounded-[5px] bg-white px-3.5! py-1.25 outline-2"
+						class="outline-main-medium-gray flex h-10.5 w-full items-center rounded-[5px] bg-white px-3.5 py-1.25 outline-2"
 					>
 						<input
 							name="email"
@@ -160,7 +160,7 @@
 				<!-- WACHTWOORD -->
 				<div class="w-full">
 					<label
-						class="outline-main-medium-gray flex h-10.5 w-full items-center rounded-[5px] bg-white px-3.5! py-1.25 outline-2"
+						class="outline-main-medium-gray flex h-10.5 w-full items-center rounded-[5px] bg-white px-3.5 py-1.25 outline-2"
 					>
 						<input
 							name="password"
@@ -179,7 +179,7 @@
 				{#if !isLogin}
 					<div class="w-full">
 						<label
-							class="outline-main-medium-gray flex h-10.5 w-full items-center rounded-[5px] bg-white px-3.5! py-1.25 outline-2"
+							class="outline-main-medium-gray flex h-10.5 w-full items-center rounded-[5px] bg-white px-3.5 py-1.25 outline-2"
 						>
 							<input
 								name="confirm_password"
@@ -199,7 +199,7 @@
 				<!-- SUBMIT -->
 				<div class="my-6 flex w-full flex-col items-center gap-4">
 					<button
-						class="bg-ribbook-yellow! outline-main-medium-gray flex h-10.5 w-58 items-center justify-center gap-2.5 rounded outline-1 -outline-offset-1 disabled:opacity-50"
+						class="bg-ribbook-yellow outline-main-medium-gray flex h-10.5 w-58 items-center justify-center gap-2.5 rounded outline-1 -outline-offset-1 disabled:opacity-50"
 						type="submit"
 						disabled={submitting}
 					>

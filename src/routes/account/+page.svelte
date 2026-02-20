@@ -4,14 +4,15 @@
 	import { createForm } from 'felte';
 	import { validator } from '@felte/validator-yup';
 	import * as yup from 'yup';
+	import ProfilePicture from '$lib/components/common/ProfilePicture.svelte';
+	import { storage } from '$lib/firebase/client/config.client';
+	import { ref, uploadBytes, getDownloadURL } from 'firebase/storage';
 
-	// ----------------------------------------
-	// STATE
-	// ----------------------------------------
 	let showAlert = $state(false);
 	let alertVariant = $state('bg-blue-800');
 	let alertMessage = $state('');
 	let submitting = $state(false);
+	let uploadingImage = $state(false);
 
 	const accountSchema = yup.object({
 		displayName: yup
@@ -32,6 +33,34 @@
 			allergies: $userStore.userProfile?.allergies || ''
 		}
 	});
+
+	// PROFIELFOTO UPLOAD
+	async function handleProfilePictureUpload(file: File) {
+		uploadingImage = true;
+		showAlert = true;
+		alertVariant = 'bg-blue-800';
+		alertMessage = 'Foto aan het uploaden...';
+
+		try {
+			const user = $userStore.currentUser;
+			if (!user) throw new Error('Geen gebruiker ingelogd');
+
+			const imgRef = ref(storage, `profile-pictures/${user.uid}_${Date.now()}.jpg`);
+			await uploadBytes(imgRef, file);
+			const url = await getDownloadURL(imgRef);
+
+			await userStore.updateProfile({ photoURL: url });
+
+			alertVariant = 'bg-green-500';
+			alertMessage = 'Foto opgeslagen!';
+		} catch (error) {
+			console.error('Image upload failed:', error);
+			alertVariant = 'bg-red-500';
+			alertMessage = 'Oei, upload mislukt! Probeer opnieuw.';
+		} finally {
+			uploadingImage = false;
+		}
+	}
 
 	async function handleSubmit(values: { displayName: string; allergies: string }) {
 		showAlert = true;
@@ -72,17 +101,12 @@
 	>
 		<!-- PFP + NAAM -->
 		<div class="flex flex-col items-center gap-3!">
-			<div class="bg-ribbook-pink flex h-24 w-24 items-center justify-center rounded-full">
-				{#if $userStore.userProfile?.photoURL}
-					<img
-						src={$userStore.userProfile.photoURL}
-						alt="Profile"
-						class="h-full w-full rounded-full object-cover"
-					/>
-				{:else}
-					<span class="material-symbols-rounded icon icon-80 text-icon-fill">person</span>
-				{/if}
-			</div>
+			<ProfilePicture
+				photoURL={$userStore.userProfile?.photoURL}
+				size="large"
+				writeable={true}
+				onUpload={handleProfilePictureUpload}
+			/>
 			<p class="font-roboto text-text-muted text-center text-lg font-semibold">
 				{$userStore.userProfile?.displayName || 'Geen naam ingesteld'}
 			</p>
@@ -118,7 +142,7 @@
 
 			<button
 				type="submit"
-				disabled={submitting}
+				disabled={submitting || uploadingImage}
 				class="bg-ribbook-red! my-1! flex h-10! cursor-pointer! items-center! justify-center! gap-3! rounded-lg! px-2.5! disabled:opacity-50"
 			>
 				<span class="font-roboto text-ribbook-yellow text-sm font-semibold">Opslaan</span>
