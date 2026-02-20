@@ -39,6 +39,7 @@
 		"@felte/validator-yup": "^1.1.4",
 		"@savaryna/tailwindcss-material-symbols": "^1.3.0",
 		"@tailwindcss/vite": "^4.1.17",
+		"browser-image-compression": "^2.0.2",
 		"felte": "^1.3.0",
 		"firebase": "^12.6.0",
 		"yup": "^1.7.1"

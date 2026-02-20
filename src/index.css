@@ -1,0 +1,51 @@
+@import 'tailwindcss';
+@import '@savaryna/tailwindcss-material-symbols';
+
+@font-face {
+	font-family: 'Red_October';
+	src: url(' /fonts/Red_October.ttf') format('truetype');
+	font-weight: normal;
+	font-style: normal;
+}
+
+@theme {
+	--color-ribbook-red: #db2524;
+	--color-ribbook-yellow: #f5cb3a;
+	--color-ribbook-pink: #ffdad6;
+
+	--color-dark-gray: #313131;
+
+	--color-text-muted: #656565;
+	--color-main-medium-gray: #656565;
+
+	--color-bg-light: #eeeeee;
+	--color-icon-fill: #d8c2bf;
+
+	--font-red-october: 'Red_October', sans-serif;
+}
+
+body {
+	font-family: 'roboto', sans-serif;
+}
+
+.icon {
+	display: inline-block;
+	width: 1em;
+	height: 1em;
+	stroke-width: 0;
+	stroke: currentColor;
+	fill: currentColor;
+}
+
+.icon-yellow {
+	color: var(--color-ribbook-yellow);
+}
+
+.icon-gray {
+	color: var(--color-text-muted);
+}
+
+.text-comment-stats {
+	font-size: 15px;
+	font-family: 'roboto', sans-serif;
+}
