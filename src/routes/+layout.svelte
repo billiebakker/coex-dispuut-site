@@ -10,8 +10,8 @@
 
 	let { children, data } = $props();
 
-	const protectedRoutes = ['/home', '/post', '/activiteiten', '/account'];
-	const publicRoutes = ['/login'];
+	const protectedRoutes = ['/home', '/post', '/activiteiten', '/account', '/'];
+	const publicRoutes = ['/login', '/'];
 
 	onMount(() => {
 		userStore.initAuth();
@@ -24,19 +24,16 @@
 		const currentPath = page.url.pathname;
 		const firebaseUser = AUTH.currentUser;
 
-		// If Firebase says user is logged out but we're on a protected route, force redirect
 		if (!firebaseUser && protectedRoutes.includes(currentPath)) {
 			goto('/login');
 			return;
 		}
 
-		// If store says logged in but Firebase says logged out, force redirect (logout race condition)
 		if ($userStore.userLoggedIn && !firebaseUser) {
 			goto('/login');
 			return;
 		}
 
-		// Normal redirects
 		if ($userStore.userLoggedIn && publicRoutes.includes(currentPath)) {
 			goto('/home');
 		}

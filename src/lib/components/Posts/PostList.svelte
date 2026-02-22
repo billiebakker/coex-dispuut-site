@@ -32,7 +32,7 @@
 		}
 	}
 
-	onMount(async () => {
+	onMount(() => {
 		const element = document.querySelector('[data-post-list]');
 		if (element) {
 			scrollParent = getClosestScrollableParent(element);
@@ -52,7 +52,7 @@
 
 		setTimeout(() => checkAndLoadMore(), 0);
 
-		await postsStore.fetchPosts();
+		postsStore.fetchPosts();
 
 		return () => {
 			if (scrollParent === window) {

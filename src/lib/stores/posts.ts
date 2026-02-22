@@ -9,8 +9,8 @@ import {
 	getDoc,
 	updateDoc,
 	doc,
-	arrayUnion,
-	arrayRemove,
+	increment,
+	deleteField,
 	DocumentSnapshot
 } from 'firebase/firestore';
 import { DB } from '$lib/firebase/client/config.client';
@@ -26,6 +26,7 @@ export interface Post {
 	likeCount: number;
 	dislikeCount: number;
 	uid: string;
+	reactions?: { [key: string]: 'like' | 'dislike' };
 	liked?: boolean;
 	disliked?: boolean;
 }
@@ -47,13 +48,9 @@ function createPostsStore() {
 		lastDoc: null
 	});
 
-	// Derived store for easier access
 	return {
 		subscribe: store.subscribe,
 
-		/**
-		 * Fetch posts from Firestore with pagination
-		 */
 		async fetchPosts() {
 			store.update((state) => ({ ...state, pendingRequest: true }));
 
@@ -70,7 +67,6 @@ function createPostsStore() {
 					return s;
 				});
 
-				// If we have a last document, start after it for pagination
 				if (state!.lastDoc) {
 					postsQuery = query(
 						collection(DB, 'posts'),
@@ -99,8 +95,8 @@ function createPostsStore() {
 
 				const newPosts: Post[] = snapshot.docs.map((docSnap) => {
 					const data = docSnap.data();
-					const liked = data.likedBy?.includes(currentUser) || false;
-					const disliked = data.dislikedBy?.includes(currentUser) || false;
+					const liked = currentUser ? data.reactions?.[currentUser] === 'like' : false;
+					const disliked = currentUser ? data.reactions?.[currentUser] === 'dislike' : false;
 
 					return {
 						docID: docSnap.id,
@@ -112,6 +108,7 @@ function createPostsStore() {
 						likeCount: data.likeCount || 0,
 						dislikeCount: data.dislikeCount || 0,
 						uid: data.uid,
+						reactions: data.reactions || {},
 						liked,
 						disliked
 					};
@@ -129,9 +126,6 @@ function createPostsStore() {
 			}
 		},
 
-		/**
-		 * Refresh posts (clear and fetch from start)
-		 */
 		async refreshPosts() {
 			store.set({
 				posts: [],
@@ -142,119 +136,91 @@ function createPostsStore() {
 			await this.fetchPosts();
 		},
 
-		/**
-		 * Toggle like on a post
-		 */
-		async handleLike(postId: string) {
-			const currentUser = await new Promise<string | null>((resolve) => {
-				const unsubscribe = userStore.subscribe((u) => {
-					unsubscribe();
-					resolve(u.currentUser?.uid || null);
+		async handleLike(postId: string, localPost?: Post) {
+			await this.handleReaction(postId, 'like', localPost);
+		},
+
+		async handleDislike(postId: string, localPost?: Post) {
+			await this.handleReaction(postId, 'dislike', localPost);
+		},
+
+		async handleReaction(postId: string, type: 'like' | 'dislike', localPost?: Post) {
+			let currentUser: string | null = null;
+			const unsubscribe = userStore.subscribe((u) => {
+				currentUser = u.currentUser?.uid || null;
+			});
+			unsubscribe();
+
+			if (!currentUser) return;
+
+			// zodat het werkt voor 1 post of meerdere
+			let post = localPost;
+			if (!post) {
+				let state: PostsState;
+				store.update((s) => {
+					state = s;
+					return s;
 				});
-			});
+				post = state!.posts.find((p) => p.docID === postId);
+			}
 
-			const postRef = doc(DB, 'posts', postId);
-			let state: PostsState;
-			store.update((s) => {
-				state = s;
-				return s;
-			});
-
-			const post = state!.posts.find((p) => p.docID === postId);
 			if (!post) return;
 
+			const otherType = type === 'like' ? 'dislike' : 'like';
+			const wasActive = post[`${type}d`];
+			const wasOtherActive = post[`${otherType}d`];
+
+			const postRef = doc(DB, 'posts', postId);
+
+			// alleen visueel
+			post[`${type}d`] = !wasActive;
+			post[`${type}Count`] += wasActive ? -1 : 1;
+			if (wasOtherActive) {
+				post[`${otherType}d`] = false;
+				post[`${otherType}Count`] = Math.max(0, post[`${otherType}Count`] - 1);
+			}
+
 			try {
-				if (post.liked) {
-					// Unlike
-					await updateDoc(postRef, {
-						likedBy: arrayRemove(currentUser),
-						likeCount: post.likeCount - 1
-					});
-					post.liked = false;
-					post.likeCount--;
+				// eslint-disable-next-line @typescript-eslint/no-explicit-any
+				const updates: any = {};
+				if (post[`${type}d`]) {
+					updates[`reactions.${currentUser}`] = type;
+					updates[`${type}Count`] = increment(1);
+					if (wasOtherActive) updates[`${otherType}Count`] = increment(-1);
 				} else {
-					// Like and remove dislike if exists
-					const updates: any = { likedBy: arrayUnion(currentUser), likeCount: post.likeCount + 1 };
-
-					if (post.disliked) {
-						updates.dislikedBy = arrayRemove(currentUser);
-						updates.dislikeCount = post.dislikeCount - 1;
-						post.disliked = false;
-						post.dislikeCount--;
-					}
-
-					await updateDoc(postRef, updates);
-					post.liked = true;
-					post.likeCount++;
+					updates[`reactions.${currentUser}`] = deleteField();
+					updates[`${type}Count`] = increment(-1);
 				}
+
+				await updateDoc(postRef, updates);
 
 				store.update((s) => ({
 					...s,
 					posts: s.posts.map((p) => (p.docID === postId ? post : p))
 				}));
 			} catch (error) {
-				console.error('Error toggling like:', error);
-			}
-		},
+				console.error(`Failed to update reaction:`, error);
 
-		async handleDislike(postId: string) {
-			const currentUser = await new Promise<string | null>((resolve) => {
-				const unsubscribe = userStore.subscribe((u) => {
-					unsubscribe();
-					resolve(u.currentUser?.uid || null);
-				});
-			});
+				// revert UI if error
+				post[`${type}d`] = wasActive;
+				post[`${type}Count`] = wasActive
+					? post[`${type}Count`] + 1
+					: Math.max(0, post[`${type}Count`] - 1);
 
-			const postRef = doc(DB, 'posts', postId);
-			let state: PostsState;
-			store.update((s) => {
-				state = s;
-				return s;
-			});
-
-			const post = state!.posts.find((p) => p.docID === postId);
-			if (!post) return;
-
-			try {
-				if (post.disliked) {
-					// Remove dislike
-					await updateDoc(postRef, {
-						dislikedBy: arrayRemove(currentUser),
-						dislikeCount: post.dislikeCount - 1
-					});
-					post.disliked = false;
-					post.dislikeCount--;
-				} else {
-					// Dislike and remove like if exists
-					const updates: any = {
-						dislikedBy: arrayUnion(currentUser),
-						dislikeCount: post.dislikeCount + 1
-					};
-
-					if (post.liked) {
-						updates.likedBy = arrayRemove(currentUser);
-						updates.likeCount = post.likeCount - 1;
-						post.liked = false;
-						post.likeCount--;
-					}
-
-					await updateDoc(postRef, updates);
-					post.disliked = true;
-					post.dislikeCount++;
+				if (wasOtherActive !== post[`${otherType}d`]) {
+					post[`${otherType}d`] = wasOtherActive;
+					post[`${otherType}Count`] = wasOtherActive
+						? post[`${otherType}Count`] + 1
+						: Math.max(0, post[`${otherType}Count`] - 1);
 				}
 
 				store.update((s) => ({
 					...s,
 					posts: s.posts.map((p) => (p.docID === postId ? post : p))
 				}));
-			} catch (error) {
-				console.error('Error toggling dislike:', error);
 			}
 		},
 
-		/**
-		 * Fetch a single post by ID
-		 */
 		async fetchPostById(postId: string): Promise<Post | null> {
 			try {
 				const postRef = doc(DB, 'posts', postId);
@@ -265,17 +231,15 @@ function createPostsStore() {
 					return null;
 				}
 
-				// Get current user ID from store
-				let currentUserId: string | null = null;
-				const unsubscribe = userStore.subscribe((u) => {
-					currentUserId = u.currentUser?.uid || null;
+				const currentUser = await new Promise<string | null>((resolve) => {
+					userStore.subscribe((u) => {
+						resolve(u.currentUser?.uid || null);
+					});
 				});
-				unsubscribe();
 
 				const data = docSnap.data();
-				const liked = data.likedBy?.includes(currentUserId) || false;
-				const disliked = data.dislikedBy?.includes(currentUserId) || false;
-
+				const liked = currentUser ? data.reactions?.[currentUser] === 'like' : false;
+				const disliked = currentUser ? data.reactions?.[currentUser] === 'dislike' : false;
 				return {
 					docID: docSnap.id,
 					postText: data.postText,
@@ -286,6 +250,7 @@ function createPostsStore() {
 					likeCount: data.likeCount || 0,
 					dislikeCount: data.dislikeCount || 0,
 					uid: data.uid,
+					reactions: data.reactions || {},
 					liked,
 					disliked
 				};

@@ -1,19 +1,8 @@
 <script lang="ts">
 	import { goto } from '$app/navigation';
 	import ProfilePicture from '../common/ProfilePicture.svelte';
-
-	interface Post {
-		docID: string;
-		postText: string;
-		userDisplayName: string;
-		userPhotoURL?: string | null;
-		datePosted: string;
-		commentCount: number;
-		likeCount: number;
-		dislikeCount: number;
-		liked?: boolean;
-		disliked?: boolean;
-	}
+	import { postsStore } from '$lib/stores/posts';
+	import type { Post } from '$lib/stores/posts';
 
 	interface Props {
 		post: Post;
@@ -37,27 +26,27 @@
 	}
 
 	function toggleLike() {
-		window.dispatchEvent(new CustomEvent('toggleLike', { detail: { postId: post.docID } }));
+		postsStore.handleLike(post.docID, post);
 	}
 
 	function toggleDislike() {
-		window.dispatchEvent(new CustomEvent('toggleDislike', { detail: { postId: post.docID } }));
+		postsStore.handleDislike(post.docID, post);
 	}
 </script>
 
 <section
-	class="outline-ribbook-yellow flex w-full max-w-[480px] flex-col items-center gap-2.5 rounded-xl bg-white outline outline-3"
+	class="outline-ribbook-yellow flex w-full max-w-120 flex-col items-center gap-2.5 rounded-xl bg-white outline-3"
 >
-	<!-- HEADER: PROFILE + NAME + TIME -->
+	<!-- svelte-ignore a11y_click_events_have_key_events -->
 	<header
 		class="flex w-full flex-col items-center gap-1"
 		onclick={goToPost}
 		role="button"
 		tabindex="0"
 	>
-		<div class="flex h-14 w-full items-center gap-1 overflow-hidden pr-[22px] pl-1.5">
+		<div class="flex h-14 w-full items-center gap-1 overflow-hidden pr-5.5 pl-1.5">
 			<ProfilePicture photoURL={post.userPhotoURL} size="small" writeable={false} />
-			<div class="flex items-center gap-6 overflow-hidden px-[9px]">
+			<div class="flex items-center gap-6 overflow-hidden px-2.25">
 				<h2 class="font-roboto text-base font-semibold text-black">
 					{post.userDisplayName || 'Onbekend'}
 				</h2>
@@ -68,9 +57,10 @@
 		</div>
 	</header>
 
-	<!-- POST TEXT -->
+	<!-- svelte-ignore a11y_no_noninteractive_element_to_interactive_role -->
+	<!-- svelte-ignore a11y_click_events_have_key_events -->
 	<article
-		class="flex w-full flex-col items-center gap-[13px] overflow-hidden px-3 py-[5px]"
+		class="flex w-full flex-col items-center gap-3.25 overflow-hidden px-3 py-1.25"
 		onclick={goToPost}
 		role="button"
 		tabindex="0"
@@ -80,9 +70,7 @@
 		</p>
 	</article>
 
-	<!-- FOOTER: ACTIONS -->
 	<footer class="flex w-full items-center justify-between px-6 py-1">
-		<!-- COMMENTS -->
 		<button
 			onclick={goToPost}
 			class="hover:bg-bg-light flex h-10 w-20 items-center justify-center gap-1 rounded-full transition-all duration-200 ease-in-out"
@@ -93,7 +81,6 @@
 			</span>
 		</button>
 
-		<!-- LIKES -->
 		<button
 			onclick={toggleLike}
 			class="hover:bg-bg-light flex h-10 w-20 items-center justify-center gap-1 rounded-full transition-all duration-200 ease-in-out"
@@ -116,7 +103,6 @@
 			</span>
 		</button>
 
-		<!-- DISLIKES -->
 		<button
 			onclick={toggleDislike}
 			class="hover:bg-bg-light flex h-10 w-20 items-center justify-center gap-1 rounded-full transition-all duration-200 ease-in-out"

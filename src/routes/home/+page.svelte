@@ -1,5 +1,4 @@
 <script>
-	import CreatePost from '$lib/components/Posts/CreatePost.svelte';
 	import PostList from '$lib/components/Posts/PostList.svelte';
 </script>
 
