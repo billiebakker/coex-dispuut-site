@@ -1,5 +1,6 @@
 <script>
 	import { page } from '$app/state';
+	import CommentList from '$lib/components/Comments/CommentList.svelte';
 	import PostItem from '$lib/components/Posts/PostItem.svelte';
 	import { postsStore } from '$lib/stores/posts';
 	import { onMount } from 'svelte';
@@ -24,6 +25,11 @@
 		}
 		pendingRequest = false;
 	});
+
+	function handleCommentCreated() {
+		if (!post) return;
+		post.commentCount += 1;
+	}
 </script>
 
 <div class="flex w-full flex-1 flex-col items-center gap-2.5 overflow-auto px-2.5 py-1">
@@ -33,5 +39,6 @@
 		<div>{error}</div>
 	{:else if post}
 		<PostItem {post} />
+		<CommentList postId={post.docID} onCommentCreated={handleCommentCreated} />
 	{/if}
 </div>
