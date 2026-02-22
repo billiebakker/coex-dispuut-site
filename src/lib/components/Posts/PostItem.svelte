@@ -2,6 +2,7 @@
 	import { goto } from '$app/navigation';
 	import ProfilePicture from '../common/ProfilePicture.svelte';
 	import { postsStore } from '$lib/stores/posts';
+	import { userStore } from '$lib/stores/user';
 	import type { Post } from '$lib/stores/posts';
 
 	interface Props {
@@ -32,18 +33,24 @@
 	function toggleDislike() {
 		postsStore.handleDislike(post.docID, post);
 	}
+
+	const canDeletePost = $derived(
+		post.uid === $userStore.currentUser?.uid || $userStore.userProfile?.role === 'admin'
+	);
+
+	async function removePost() {
+		if (!canDeletePost) return;
+		const confirmed = window.confirm('deze echt verwijderen?');
+		if (!confirmed) return;
+		await postsStore.deletePost(post.docID);
+	}
 </script>
 
 <section
 	class="outline-ribbook-yellow flex w-full max-w-120 flex-col items-center gap-2.5 rounded-xl bg-white outline-3"
 >
 	<!-- svelte-ignore a11y_click_events_have_key_events -->
-	<header
-		class="flex w-full flex-col items-center gap-1"
-		onclick={goToPost}
-		role="button"
-		tabindex="0"
-	>
+	<header class="flex w-full items-center gap-1" onclick={goToPost} role="button" tabindex="0">
 		<div class="flex h-14 w-full items-center gap-1 overflow-hidden pr-5.5 pl-1.5">
 			<ProfilePicture photoURL={post.userPhotoURL} size="small" writeable={false} />
 			<div class="flex items-center gap-6 overflow-hidden px-2.25">
@@ -55,6 +62,15 @@
 				</p>
 			</div>
 		</div>
+		{#if canDeletePost}
+			<button
+				onclick={removePost}
+				class="hover:bg-bg-light mr-6 flex h-10 w-10 items-center justify-center rounded-full transition-all duration-200 ease-in-out"
+				aria-label="Verwijder post"
+			>
+				<span class="material-symbols-rounded icon icon-gray">delete</span>
+			</button>
+		{/if}
 	</header>
 
 	<!-- svelte-ignore a11y_no_noninteractive_element_to_interactive_role -->

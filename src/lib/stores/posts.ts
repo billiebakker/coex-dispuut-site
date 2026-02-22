@@ -11,6 +11,7 @@ import {
 	doc,
 	increment,
 	deleteField,
+	deleteDoc,
 	DocumentSnapshot
 } from 'firebase/firestore';
 import { DB } from '$lib/firebase/client/config.client';
@@ -257,6 +258,18 @@ function createPostsStore() {
 			} catch (error) {
 				console.error('Error fetching post:', error);
 				return null;
+			}
+		},
+
+		async deletePost(postId: string) {
+			try {
+				await deleteDoc(doc(DB, 'posts', postId));
+				store.update((s) => ({
+					...s,
+					posts: s.posts.filter((post) => post.docID !== postId)
+				}));
+			} catch (error) {
+				console.error('Error deleting post:', error);
 			}
 		}
 	};
