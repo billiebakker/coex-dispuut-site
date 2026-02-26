@@ -11,10 +11,11 @@
 	let { photoURL = null, size = 'large', writeable = false, onUpload }: Props = $props();
 
 	let uploading = $state(false);
+	// svelte-ignore non_reactive_update
 	let fileInput: HTMLInputElement;
 
-	const sizeClasses = size === 'small' ? 'h-12 w-12' : 'h-24 w-24';
-	const iconSize = size === 'small' ? 'icon-40' : 'icon-80';
+	const sizeClasses = $derived(size === 'small' ? 'h-12 w-12' : 'h-24 w-24');
+	const iconSize = $derived(size === 'small' ? 'icon-40' : 'icon-80');
 
 	async function handleImageUpload(event: Event) {
 		const target = event.target as HTMLInputElement;

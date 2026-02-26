@@ -29,6 +29,7 @@ export interface UserProfile {
 	role: string;
 	email: string;
 	photoURL?: string;
+	allergies?: string;
 }
 
 export async function loadUserProfile(uid: string): Promise<UserProfile | null> {
