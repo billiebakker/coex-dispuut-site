@@ -17,6 +17,10 @@
 	let signupShowAlert = $state(false);
 	let signupAlertVariant = $state('bg-blue-800');
 	let signupAlertMessage = $state('even wachten...');
+	let selectedFoodChoice = $state<'no_food_choice' | 'veg_choice' | 'meat_choice'>(
+		'no_food_choice'
+	);
+	let selectedDrinkChoice = $state('geen drinken');
 
 	const signUpSchema = yup.object({
 		allergies: yup
@@ -100,7 +104,10 @@
 		pendingRequest = false;
 
 		const initialDrink = userChoices?.drinkChoice || 'geen drinken';
-		setFields('foodChoice', userChoices?.foodChoice || 'no_food_choice');
+		const initialFoodChoice = userChoices?.foodChoice || 'no_food_choice';
+		selectedFoodChoice = initialFoodChoice;
+		selectedDrinkChoice = initialDrink;
+		setFields('foodChoice', initialFoodChoice);
 		setFields('drinkChoice', initialDrink);
 		setFields('allergies', userChoices?.allergies || '');
 	});
@@ -135,26 +142,83 @@
 					<div>
 						<p class="block pb-2">Wat wil je eten?</p>
 						<div class="flex gap-2">
-							<label class="flex-1 cursor-pointer rounded-lg px-3 py-2 text-center">
-								<input type="radio" name="foodChoice" value="no_food_choice" class="hidden" />
-								<span class="bg-ribbook-pink border-dark-gray block rounded-lg border px-3 py-2"
-									>Geen eten</span
+							<label
+								class="flex-1 cursor-pointer rounded-lg px-3 py-2 text-center transition-all duration-150 ease-in-out"
+							>
+								<input
+									type="radio"
+									name="foodChoice"
+									value="no_food_choice"
+									class="hidden"
+									checked={selectedFoodChoice === 'no_food_choice'}
+									onchange={() => {
+										selectedFoodChoice = 'no_food_choice';
+										setFields('foodChoice', 'no_food_choice');
+									}}
+								/>
+								<span
+									class="block rounded-lg border px-3 py-2"
+									class:bg-ribbook-pink={selectedFoodChoice === 'no_food_choice'}
+									class:border-dark-gray={selectedFoodChoice === 'no_food_choice'}
+									class:bg-gray-100={selectedFoodChoice !== 'no_food_choice'}
+									class:text-gray-700={selectedFoodChoice !== 'no_food_choice'}
+									class:border-gray-100={selectedFoodChoice !== 'no_food_choice'}
 								>
+									Geen eten
+								</span>
 							</label>
 
-							<label class="flex-1 cursor-pointer rounded-lg px-3 py-2 text-center">
-								<input type="radio" name="foodChoice" value="veg_choice" class="hidden" />
-								<span class="bg-ribbook-pink border-dark-gray block rounded-lg border px-3 py-2"
-									>Vega</span
+							<label
+								class="flex-1 cursor-pointer rounded-lg px-3 py-2 text-center transition-all duration-150 ease-in-out"
+							>
+								<input
+									type="radio"
+									name="foodChoice"
+									value="veg_choice"
+									class="hidden"
+									checked={selectedFoodChoice === 'veg_choice'}
+									onchange={() => {
+										selectedFoodChoice = 'veg_choice';
+										setFields('foodChoice', 'veg_choice');
+									}}
+								/>
+								<span
+									class="block rounded-lg border px-3 py-2"
+									class:bg-ribbook-pink={selectedFoodChoice === 'veg_choice'}
+									class:border-dark-gray={selectedFoodChoice === 'veg_choice'}
+									class:bg-gray-100={selectedFoodChoice !== 'veg_choice'}
+									class:text-gray-700={selectedFoodChoice !== 'veg_choice'}
+									class:border-gray-100={selectedFoodChoice !== 'veg_choice'}
 								>
+									Vega
+								</span>
 							</label>
 
 							{#if event.foodOption === 'veg_and_meat'}
-								<label class="flex-1 cursor-pointer rounded-lg px-3 py-2 text-center">
-									<input type="radio" name="foodChoice" value="meat_choice" class="hidden" />
-									<span class="bg-ribbook-pink border-dark-gray block rounded-lg border px-3 py-2"
-										>Vlees</span
+								<label
+									class="flex-1 cursor-pointer rounded-lg px-3 py-2 text-center transition-all duration-150 ease-in-out"
+								>
+									<input
+										type="radio"
+										name="foodChoice"
+										value="meat_choice"
+										class="hidden"
+										checked={selectedFoodChoice === 'meat_choice'}
+										onchange={() => {
+											selectedFoodChoice = 'meat_choice';
+											setFields('foodChoice', 'meat_choice');
+										}}
+									/>
+									<span
+										class="block rounded-lg border px-3 py-2"
+										class:bg-ribbook-pink={selectedFoodChoice === 'meat_choice'}
+										class:border-dark-gray={selectedFoodChoice === 'meat_choice'}
+										class:bg-gray-100={selectedFoodChoice !== 'meat_choice'}
+										class:text-gray-700={selectedFoodChoice !== 'meat_choice'}
+										class:border-gray-100={selectedFoodChoice !== 'meat_choice'}
 									>
+										Vlees
+									</span>
 								</label>
 							{/if}
 						</div>
@@ -179,11 +243,30 @@
 						<p class="block pb-2">Wat wil je drinken?</p>
 						<div class="flex flex-wrap gap-2">
 							{#each ['geen drinken', ...(event.drinkOptions || [])] as drink (drink)}
-								<label class="flex-1 cursor-pointer rounded-lg px-3 py-2 text-center">
-									<input type="radio" name="drinkChoice" value={drink} class="hidden" />
-									<span class="bg-ribbook-pink border-dark-gray block rounded-lg border px-3 py-2"
-										>{drink}</span
+								<label
+									class="flex-1 cursor-pointer rounded-lg px-3 py-2 text-center transition-all duration-150 ease-in-out"
+								>
+									<input
+										type="radio"
+										name="drinkChoice"
+										value={drink}
+										class="hidden"
+										checked={selectedDrinkChoice === drink}
+										onchange={() => {
+											selectedDrinkChoice = drink;
+											setFields('drinkChoice', drink);
+										}}
+									/>
+									<span
+										class="block rounded-lg border px-3 py-2"
+										class:bg-ribbook-pink={selectedDrinkChoice === drink}
+										class:border-dark-gray={selectedDrinkChoice === drink}
+										class:bg-gray-100={selectedDrinkChoice !== drink}
+										class:text-gray-700={selectedDrinkChoice !== drink}
+										class:border-gray-100={selectedDrinkChoice !== drink}
 									>
+										{drink}
+									</span>
 								</label>
 							{/each}
 						</div>
