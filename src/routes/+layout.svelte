@@ -10,8 +10,8 @@
 
 	let { children, data } = $props();
 
-	const protectedRoutes = ['/home', '/post', '/activiteiten', '/account', '/'];
-	const publicRoutes = ['/login', '/'];
+	// const protectedRoutes = ['/home', '/post', '/activiteiten', '/account', '/'];
+	const publicRoutes = ['/login'];
 
 	onMount(() => {
 		userStore.initAuth();
@@ -24,7 +24,7 @@
 		const currentPath = page.url.pathname;
 		const firebaseUser = AUTH.currentUser;
 
-		if (!firebaseUser && protectedRoutes.includes(currentPath)) {
+		if (!firebaseUser && !publicRoutes.includes(currentPath)) {
 			goto('/login');
 			return;
 		}
@@ -34,11 +34,11 @@
 			return;
 		}
 
-		if ($userStore.userLoggedIn && publicRoutes.includes(currentPath)) {
+		if ($userStore.userLoggedIn && (publicRoutes.includes(currentPath) || currentPath === '/')) {
 			goto('/home');
 		}
 
-		if (!$userStore.userLoggedIn && protectedRoutes.includes(currentPath)) {
+		if (!$userStore.userLoggedIn && !publicRoutes.includes(currentPath)) {
 			goto('/login');
 		}
 	});
