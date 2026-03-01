@@ -35,8 +35,9 @@
 
 		if (!el) return;
 		const nearBottom = el.scrollTop + el.clientHeight >= el.scrollHeight - 100;
+		const isSearching = $eventsStore.searchQuery.trim().length > 0;
 
-		if (nearBottom && !$eventsStore.pendingRequest && !$eventsStore.noMoreEvents) {
+		if (nearBottom && !isSearching && !$eventsStore.pendingRequest && !$eventsStore.noMoreEvents) {
 			await getEvents();
 		}
 	}
@@ -85,6 +86,17 @@
 	<section
 		class="outline-ribbook-yellow flex w-full max-w-[520px] flex-row flex-wrap items-center justify-between gap-2.5 rounded-xl px-5 py-3"
 	>
+		<label for="event-search" class="sr-only">Zoek activiteiten</label>
+		<input
+			id="event-search"
+			type="search"
+			placeholder="Zoek op titel, beschrijving of locatie..."
+			value={$eventsStore.searchQuery}
+			oninput={(event) =>
+				eventsStore.setSearchQuery((event.currentTarget as HTMLInputElement).value)}
+			class="outline-ribbook-yellow text-text-primary h-10 w-full rounded-lg bg-white px-3 outline -outline-offset-1"
+		/>
+
 		<button
 			onclick={toggleSort}
 			class="bg-ribbook-red flex cursor-pointer items-center justify-center gap-1 rounded-lg p-2 pr-3 hover:bg-white/20"
@@ -114,15 +126,25 @@
 		</button>
 	</section>
 
-	{#each $eventsStore.events as event (event.docID)}
+	{#each $eventsStore.filteredEvents as event (event.docID)}
 		<EventItem {event} />
 	{/each}
 
-	<button
-		class="outline-ribbook-yellow text-ribbook-yellow flex h-[42px] w-[224px] items-center justify-center gap-2.5 rounded outline-2 -outline-offset-1"
-		onclick={getEvents}
-		disabled={$eventsStore.pendingRequest || $eventsStore.noMoreEvents}
-	>
-		{loadMoreButtonText}
-	</button>
+	{#if $eventsStore.searchQuery.trim() && $eventsStore.pendingRequest}
+		<p class="text-text-muted text-sm">Aan het zoeken...</p>
+	{/if}
+
+	{#if $eventsStore.filteredEvents.length === 0 && !$eventsStore.pendingRequest}
+		<p class="text-text-muted text-sm">Geen activiteiten gevonden voor deze zoekopdracht.</p>
+	{/if}
+
+	{#if !$eventsStore.searchQuery.trim()}
+		<button
+			class="outline-ribbook-yellow text-ribbook-yellow flex h-[42px] w-[224px] items-center justify-center gap-2.5 rounded outline-2 -outline-offset-1"
+			onclick={getEvents}
+			disabled={$eventsStore.pendingRequest || $eventsStore.noMoreEvents}
+		>
+			{loadMoreButtonText}
+		</button>
+	{/if}
 </div>

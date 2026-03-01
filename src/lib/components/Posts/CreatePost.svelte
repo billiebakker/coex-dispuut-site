@@ -43,11 +43,16 @@
 			const user = $userStore.currentUser;
 			if (!user) throw new Error('Geen gebruiker ingelogd');
 
+			const postText = values.postText.trim();
+			const userDisplayName = $userStore.userProfile?.displayName || user.displayName || 'Onbekend';
+
 			const post = {
-				postText: values.postText,
+				postText,
+				postTextLower: postText.toLowerCase(),
 				datePosted: new Date().toISOString(),
 				uid: user.uid,
-				userDisplayName: $userStore.userProfile?.displayName || user.displayName || 'Onbekend',
+				userDisplayName,
+				userDisplayNameLower: userDisplayName.toLowerCase(),
 				userPhotoURL: $userStore.userProfile?.photoURL || null,
 				commentCount: 0,
 				likeCount: 0,

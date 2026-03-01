@@ -1,10 +1,12 @@
-import { writable, type Writable } from 'svelte/store';
+import { get, writable, type Writable } from 'svelte/store';
 import {
 	collection,
 	query,
 	orderBy,
 	limit,
 	startAfter,
+	startAt,
+	endAt,
 	getDocs,
 	getDoc,
 	updateDoc,
@@ -34,16 +36,42 @@ export interface Post {
 
 interface PostsState {
 	posts: Post[];
+	filteredPosts: Post[];
+	searchQuery: string;
 	pendingRequest: boolean;
 	noMorePosts: boolean;
 	lastDoc: DocumentSnapshot | null;
 }
 
 const POSTS_PER_PAGE = 10;
+const SEARCH_RESULTS_LIMIT = 25;
+
+let searchRequestCounter = 0;
+
+function filterPosts(posts: Post[], searchQuery: string): Post[] {
+	const query = searchQuery.trim().toLowerCase();
+	if (!query) return posts;
+
+	return posts.filter((post) => {
+		const text = post.postText?.toLowerCase() || '';
+		const displayName = post.userDisplayName?.toLowerCase() || '';
+		return text.includes(query) || displayName.includes(query);
+	});
+}
+
+function normalizeSearchValue(value: string): string {
+	return value.trim().toLowerCase();
+}
+
+async function getCurrentUserId(): Promise<string | null> {
+	return get(userStore).currentUser?.uid || null;
+}
 
 function createPostsStore() {
 	const store: Writable<PostsState> = writable({
 		posts: [],
+		filteredPosts: [],
+		searchQuery: '',
 		pendingRequest: false,
 		noMorePosts: false,
 		lastDoc: null
@@ -88,11 +116,7 @@ function createPostsStore() {
 					return;
 				}
 
-				const currentUser = await new Promise<string | null>((resolve) => {
-					userStore.subscribe((u) => {
-						resolve(u.currentUser?.uid || null);
-					});
-				});
+				const currentUser = await getCurrentUserId();
 
 				const newPosts: Post[] = snapshot.docs.map((docSnap) => {
 					const data = docSnap.data();
@@ -118,6 +142,7 @@ function createPostsStore() {
 				store.update((s) => ({
 					...s,
 					posts: [...s.posts, ...newPosts],
+					filteredPosts: filterPosts([...s.posts, ...newPosts], s.searchQuery),
 					lastDoc: snapshot.docs[snapshot.docs.length - 1],
 					pendingRequest: false
 				}));
@@ -128,13 +153,122 @@ function createPostsStore() {
 		},
 
 		async refreshPosts() {
+			let state: PostsState;
+			store.update((s) => {
+				state = s;
+				return s;
+			});
+
 			store.set({
 				posts: [],
+				filteredPosts: [],
+				searchQuery: state!.searchQuery,
 				pendingRequest: false,
 				noMorePosts: false,
 				lastDoc: null
 			});
 			await this.fetchPosts();
+		},
+
+		setSearchQuery(searchQuery: string) {
+			const activeRequest = ++searchRequestCounter;
+			const normalizedQuery = normalizeSearchValue(searchQuery);
+
+			store.update((state) => ({
+				...state,
+				searchQuery,
+				filteredPosts: normalizedQuery ? state.filteredPosts : state.posts
+			}));
+
+			if (!normalizedQuery) {
+				store.update((state) => ({ ...state, pendingRequest: false }));
+				return;
+			}
+
+			void this.searchPosts(searchQuery, activeRequest);
+		},
+
+		async searchPosts(searchQuery: string, requestId: number) {
+			const normalizedQuery = normalizeSearchValue(searchQuery);
+
+			if (!normalizedQuery) {
+				store.update((state) => ({
+					...state,
+					filteredPosts: state.posts,
+					pendingRequest: false
+				}));
+				return;
+			}
+
+			store.update((state) => ({ ...state, pendingRequest: true }));
+
+			try {
+				const currentUser = await getCurrentUserId();
+
+				const postTextQuery = query(
+					collection(DB, 'posts'),
+					orderBy('postTextLower'),
+					startAt(normalizedQuery),
+					endAt(`${normalizedQuery}\uf8ff`),
+					limit(SEARCH_RESULTS_LIMIT)
+				);
+
+				const displayNameQuery = query(
+					collection(DB, 'posts'),
+					orderBy('userDisplayNameLower'),
+					startAt(normalizedQuery),
+					endAt(`${normalizedQuery}\uf8ff`),
+					limit(SEARCH_RESULTS_LIMIT)
+				);
+
+				const [textSnapshot, displayNameSnapshot] = await Promise.all([
+					getDocs(postTextQuery),
+					getDocs(displayNameQuery)
+				]);
+
+				if (requestId !== searchRequestCounter) return;
+
+				const docsById = new Map<string, Post>();
+
+				for (const docSnap of [...textSnapshot.docs, ...displayNameSnapshot.docs]) {
+					const data = docSnap.data();
+					const liked = currentUser ? data.reactions?.[currentUser] === 'like' : false;
+					const disliked = currentUser ? data.reactions?.[currentUser] === 'dislike' : false;
+
+					docsById.set(docSnap.id, {
+						docID: docSnap.id,
+						postText: data.postText,
+						userDisplayName: data.userDisplayName || 'Onbekend',
+						userPhotoURL: data.userPhotoURL || null,
+						datePosted: data.datePosted,
+						commentCount: data.commentCount || 0,
+						likeCount: data.likeCount || 0,
+						dislikeCount: data.dislikeCount || 0,
+						uid: data.uid,
+						reactions: data.reactions || {},
+						liked,
+						disliked
+					});
+				}
+
+				const searchResults = Array.from(docsById.values()).sort(
+					(a, b) => new Date(b.datePosted).getTime() - new Date(a.datePosted).getTime()
+				);
+
+				store.update((state) => ({
+					...state,
+					filteredPosts: searchResults,
+					pendingRequest: false
+				}));
+			} catch (error) {
+				if (requestId !== searchRequestCounter) return;
+				console.error('Error searching posts:', error);
+				store.update((state) => ({
+					...state,
+					filteredPosts: filterPosts(state.posts, searchQuery),
+					pendingRequest: false
+				}));
+			}
 		},
 
 		async handleLike(postId: string, localPost?: Post) {
@@ -197,7 +331,11 @@ function createPostsStore() {
 
 				store.update((s) => ({
 					...s,
-					posts: s.posts.map((p) => (p.docID === postId ? post : p))
+					posts: s.posts.map((p) => (p.docID === postId ? post : p)),
+					filteredPosts: filterPosts(
+						s.posts.map((p) => (p.docID === postId ? post : p)),
+						s.searchQuery
+					)
 				}));
 			} catch (error) {
 				console.error(`Failed to update reaction:`, error);
@@ -217,7 +355,11 @@ function createPostsStore() {
 
 				store.update((s) => ({
 					...s,
-					posts: s.posts.map((p) => (p.docID === postId ? post : p))
+					posts: s.posts.map((p) => (p.docID === postId ? post : p)),
+					filteredPosts: filterPosts(
+						s.posts.map((p) => (p.docID === postId ? post : p)),
+						s.searchQuery
+					)
 				}));
 			}
 		},
@@ -232,11 +374,7 @@ function createPostsStore() {
 					return null;
 				}
 
-				const currentUser = await new Promise<string | null>((resolve) => {
-					userStore.subscribe((u) => {
-						resolve(u.currentUser?.uid || null);
-					});
-				});
+				const currentUser = await getCurrentUserId();
 
 				const data = docSnap.data();
 				const liked = currentUser ? data.reactions?.[currentUser] === 'like' : false;
@@ -266,7 +404,11 @@ function createPostsStore() {
 				await deleteDoc(doc(DB, 'posts', postId));
 				store.update((s) => ({
 					...s,
-					posts: s.posts.filter((post) => post.docID !== postId)
+					posts: s.posts.filter((post) => post.docID !== postId),
+					filteredPosts: filterPosts(
+						s.posts.filter((post) => post.docID !== postId),
+						s.searchQuery
+					)
 				}));
 			} catch (error) {
 				console.error('Error deleting post:', error);

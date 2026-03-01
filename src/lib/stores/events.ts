@@ -9,6 +9,8 @@ import {
 	orderBy,
 	query,
 	startAfter,
+	startAt,
+	endAt,
 	updateDoc,
 	where,
 	deleteField,
@@ -50,6 +52,8 @@ export interface EventItem {
 
 interface EventsState {
 	events: EventItem[];
+	filteredEvents: EventItem[];
+	searchQuery: string;
 	lastDoc: DocumentSnapshot | null;
 	noMoreEvents: boolean;
 	pendingRequest: boolean;
@@ -75,10 +79,52 @@ interface NewEventValues {
 	headerImage: string | null;
 }
 
+const SEARCH_RESULTS_LIMIT = 25;
+let searchRequestCounter = 0;
+
+function normalizeSearchValue(value: string): string {
+	return value.trim().toLowerCase();
+}
+
+function mapEventDoc(docSnap: DocumentSnapshot): EventItem {
+	const data = docSnap.data() as Record<string, unknown>;
+	return {
+		docID: docSnap.id,
+		title: (data.title as string) || '',
+		date: (data.date as string) || '',
+		description: (data.description as string) || '',
+		signupDeadline: (data.signupDeadline as string) || '',
+		headerImage: (data.headerImage as string) || null,
+		location: (data.location as string) || '',
+		datePosted: (data.datePosted as string) || '',
+		userDisplayName: (data.userDisplayName as string) || 'Onbekend',
+		uid: (data.uid as string) || '',
+		commentCount: (data.commentCount as number) || 0,
+		attendeeCount: (data.attendeeCount as number) || 0,
+		foodOption: ((data.foodOption as FoodOption) || 'no_food') as FoodOption,
+		drinkOptions: (data.drinkOptions as string[]) || [],
+		signUps: (data.signUps as Record<string, EventSignUp>) || {}
+	};
+}
+
+function filterEvents(events: EventItem[], searchQuery: string): EventItem[] {
+	const query = normalizeSearchValue(searchQuery);
+	if (!query) return events;
+
+	return events.filter((event) => {
+		const title = event.title.toLowerCase();
+		const description = event.description.toLowerCase();
+		const location = event.location.toLowerCase();
+		return title.includes(query) || description.includes(query) || location.includes(query);
+	});
+}
+
 function createEventsStore() {
 	const eventsCollection = collection(DB, 'events');
 	const store: Writable<EventsState> = writable({
 		events: [],
+		filteredEvents: [],
+		searchQuery: '',
 		lastDoc: null,
 		noMoreEvents: false,
 		pendingRequest: false,
@@ -99,6 +145,8 @@ function createEventsStore() {
 	function getState(): EventsState {
 		let stateSnapshot: EventsState = {
 			events: [],
+			filteredEvents: [],
+			searchQuery: '',
 			lastDoc: null,
 			noMoreEvents: false,
 			pendingRequest: false,
@@ -174,16 +222,24 @@ function createEventsStore() {
 			const signupDeadline = new Date(
 				values.date.getTime() - values.deadlineInHoursToEvent * 60 * 60 * 1000
 			);
+			const title = values.title.trim();
+			const description = values.description.trim();
+			const location = values.location.trim();
+			const userDisplayName = user.displayName || 'Onbekend';
 
 			const eventPayload = {
-				title: values.title,
+				title,
+				titleLower: title.toLowerCase(),
 				date: values.date.toISOString(),
-				description: values.description,
+				description,
+				descriptionLower: description.toLowerCase(),
 				signupDeadline: signupDeadline.toISOString(),
 				headerImage: values.headerImage,
-				location: values.location,
+				location,
+				locationLower: location.toLowerCase(),
 				datePosted: new Date().toISOString(),
-				userDisplayName: user.displayName || 'Onbekend',
+				userDisplayName,
+				userDisplayNameLower: userDisplayName.toLowerCase(),
 				uid: user.uid,
 				commentCount: 0,
 				attendeeCount: 0,
@@ -207,7 +263,7 @@ function createEventsStore() {
 
 		async fetchEvents() {
 			const state = getState();
-			if (state.pendingRequest || state.noMoreEvents) return;
+			if (state.pendingRequest || state.noMoreEvents || state.searchQuery.trim()) return;
 
 			store.update((s) => ({ ...s, pendingRequest: true }));
 
@@ -230,26 +286,7 @@ function createEventsStore() {
 			const snapshot = await getDocs(eventsQuery);
 
 			if (!snapshot.empty) {
-				const loadedEvents: EventItem[] = snapshot.docs.map((docSnap) => {
-					const data = docSnap.data();
-					return {
-						docID: docSnap.id,
-						title: data.title,
-						date: data.date,
-						description: data.description,
-						signupDeadline: data.signupDeadline,
-						headerImage: data.headerImage || null,
-						location: data.location || '',
-						datePosted: data.datePosted,
-						userDisplayName: data.userDisplayName || 'Onbekend',
-						uid: data.uid,
-						commentCount: data.commentCount || 0,
-						attendeeCount: data.attendeeCount || 0,
-						foodOption: (data.foodOption || 'no_food') as FoodOption,
-						drinkOptions: data.drinkOptions || [],
-						signUps: data.signUps || {}
-					};
-				});
+				const loadedEvents: EventItem[] = snapshot.docs.map((docSnap) => mapEventDoc(docSnap));
 
 				store.update((s) => {
 					const deduped = [...s.events];
@@ -262,6 +299,7 @@ function createEventsStore() {
 					return {
 						...s,
 						events: deduped,
+						filteredEvents: filterEvents(deduped, s.searchQuery),
 						lastDoc: snapshot.docs[snapshot.docs.length - 1],
 						pendingRequest: false
 					};
@@ -280,31 +318,126 @@ function createEventsStore() {
 			const snap = await getDoc(doc(DB, 'events', id));
 			if (!snap.exists()) return null;
 
-			const data = snap.data();
-			const event: EventItem = {
-				docID: snap.id,
-				title: data.title,
-				date: data.date,
-				description: data.description,
-				signupDeadline: data.signupDeadline,
-				headerImage: data.headerImage || null,
-				location: data.location || '',
-				datePosted: data.datePosted,
-				userDisplayName: data.userDisplayName || 'Onbekend',
-				uid: data.uid,
-				commentCount: data.commentCount || 0,
-				attendeeCount: data.attendeeCount || 0,
-				foodOption: (data.foodOption || 'no_food') as FoodOption,
-				drinkOptions: data.drinkOptions || [],
-				signUps: data.signUps || {}
-			};
+			const event = mapEventDoc(snap);
 
-			store.update((s) => ({ ...s, events: [...s.events, event] }));
+			store.update((s) => {
+				const nextEvents = [...s.events, event];
+				return {
+					...s,
+					events: nextEvents,
+					filteredEvents: filterEvents(nextEvents, s.searchQuery)
+				};
+			});
 			return event;
 		},
 
+		setSearchQuery(searchQuery: string) {
+			const activeRequest = ++searchRequestCounter;
+			const normalizedQuery = normalizeSearchValue(searchQuery);
+
+			store.update((state) => ({
+				...state,
+				searchQuery,
+				filteredEvents: normalizedQuery ? state.filteredEvents : state.events
+			}));
+
+			if (!normalizedQuery) {
+				store.update((state) => ({ ...state, pendingRequest: false }));
+				return;
+			}
+
+			void this.searchEvents(searchQuery, activeRequest);
+		},
+
+		async searchEvents(searchQuery: string, requestId: number) {
+			const normalizedQuery = normalizeSearchValue(searchQuery);
+
+			if (!normalizedQuery) {
+				store.update((state) => ({
+					...state,
+					filteredEvents: state.events,
+					pendingRequest: false
+				}));
+				return;
+			}
+
+			store.update((state) => ({ ...state, pendingRequest: true }));
+
+			try {
+				const titleQuery = query(
+					eventsCollection,
+					orderBy('titleLower'),
+					startAt(normalizedQuery),
+					endAt(`${normalizedQuery}\uf8ff`),
+					limit(SEARCH_RESULTS_LIMIT)
+				);
+
+				const descriptionQuery = query(
+					eventsCollection,
+					orderBy('descriptionLower'),
+					startAt(normalizedQuery),
+					endAt(`${normalizedQuery}\uf8ff`),
+					limit(SEARCH_RESULTS_LIMIT)
+				);
+
+				const locationQuery = query(
+					eventsCollection,
+					orderBy('locationLower'),
+					startAt(normalizedQuery),
+					endAt(`${normalizedQuery}\uf8ff`),
+					limit(SEARCH_RESULTS_LIMIT)
+				);
+
+				const [titleSnapshot, descriptionSnapshot, locationSnapshot] = await Promise.all([
+					getDocs(titleQuery),
+					getDocs(descriptionQuery),
+					getDocs(locationQuery)
+				]);
+
+				if (requestId !== searchRequestCounter) return;
+
+				const docsById = new Map<string, EventItem>();
+				for (const docSnap of [
+					...titleSnapshot.docs,
+					...descriptionSnapshot.docs,
+					...locationSnapshot.docs
+				]) {
+					docsById.set(docSnap.id, mapEventDoc(docSnap));
+				}
+
+				const searchResults = Array.from(docsById.values()).sort(
+					(a, b) => new Date(a.date).getTime() - new Date(b.date).getTime()
+				);
+
+				store.update((state) => ({
+					...state,
+					filteredEvents: searchResults,
+					pendingRequest: false
+				}));
+			} catch (error) {
+				if (requestId !== searchRequestCounter) return;
+				console.error('Error searching events:', error);
+				store.update((state) => ({
+					...state,
+					filteredEvents: filterEvents(state.events, searchQuery),
+					pendingRequest: false
+				}));
+			}
+		},
+
 		async refreshEvents() {
+			const state = getState();
+			const searchQuery = state.searchQuery;
+
 			await this.resetEvents();
+
+			if (searchQuery.trim()) {
+				const requestId = ++searchRequestCounter;
+				store.update((s) => ({ ...s, searchQuery }));
+				await this.searchEvents(searchQuery, requestId);
+				return;
+			}
+
 			await this.fetchEvents();
 		},
 
@@ -312,6 +445,7 @@ function createEventsStore() {
 			store.update((state) => ({
 				...state,
 				events: [],
+				filteredEvents: [],
 				lastDoc: null,
 				noMoreEvents: false,
 				pendingRequest: false
