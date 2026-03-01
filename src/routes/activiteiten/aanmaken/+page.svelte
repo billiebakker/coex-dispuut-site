@@ -46,6 +46,7 @@
 	let drinkOptions = $state(['Bier', 'Wijn', 'Fris', 'Cocktail']);
 	let newDrink = $state('');
 	let selectedDrinkOptions = $state<string[]>([]);
+	let selectedFoodOption = $state<FoodOption>('no_food');
 
 	let isDragover = $state(false);
 	let imageUpload = $state<ImageUpload | null>(null);
@@ -178,6 +179,7 @@
 	onMount(() => {
 		setFields('deadlineInHoursToEvent', 2);
 		setFields('foodOption', 'no_food');
+		selectedFoodOption = 'no_food';
 	});
 </script>
 
@@ -338,31 +340,83 @@
 			<div>
 				<p class="block pb-2">Eten?</p>
 				<div class="flex gap-2">
-					<label class="flex-1 cursor-pointer rounded-lg px-3 py-2 text-center">
+					<label
+						class="flex-1 cursor-pointer rounded-lg px-3 py-2 text-center transition-all duration-150 ease-in-out"
+					>
 						<input
 							id="foodOptionNone"
 							type="radio"
 							name="foodOption"
 							value="no_food"
 							class="hidden"
+							checked={selectedFoodOption === 'no_food'}
+							onchange={() => {
+								selectedFoodOption = 'no_food';
+								setFields('foodOption', 'no_food');
+							}}
 						/>
-						<span class="bg-ribbook-pink border-dark-gray block rounded-lg border px-3 py-2"
-							>Geen eten</span
+						<span
+							class="block rounded-lg border px-3 py-2"
+							class:bg-ribbook-pink={selectedFoodOption === 'no_food'}
+							class:border-dark-gray={selectedFoodOption === 'no_food'}
+							class:bg-gray-100={selectedFoodOption !== 'no_food'}
+							class:text-gray-700={selectedFoodOption !== 'no_food'}
+							class:border-gray-100={selectedFoodOption !== 'no_food'}
 						>
+							Geen eten
+						</span>
 					</label>
 
-					<label class="flex-1 cursor-pointer rounded-lg px-3 py-2 text-center">
-						<input type="radio" name="foodOption" value="veg" class="hidden" />
-						<span class="bg-ribbook-pink border-dark-gray block rounded-lg border px-3 py-2"
-							>Vega</span
+					<label
+						class="flex-1 cursor-pointer rounded-lg px-3 py-2 text-center transition-all duration-150 ease-in-out"
+					>
+						<input
+							type="radio"
+							name="foodOption"
+							value="veg"
+							class="hidden"
+							checked={selectedFoodOption === 'veg'}
+							onchange={() => {
+								selectedFoodOption = 'veg';
+								setFields('foodOption', 'veg');
+							}}
+						/>
+						<span
+							class="block rounded-lg border px-3 py-2"
+							class:bg-ribbook-pink={selectedFoodOption === 'veg'}
+							class:border-dark-gray={selectedFoodOption === 'veg'}
+							class:bg-gray-100={selectedFoodOption !== 'veg'}
+							class:text-gray-700={selectedFoodOption !== 'veg'}
+							class:border-gray-100={selectedFoodOption !== 'veg'}
 						>
+							Vega
+						</span>
 					</label>
 
-					<label class="flex-1 cursor-pointer rounded-lg px-3 py-2 text-center">
-						<input type="radio" name="foodOption" value="veg_and_meat" class="hidden" />
-						<span class="bg-ribbook-pink border-dark-gray block rounded-lg border px-3 py-2"
-							>Vega + vlees</span
+					<label
+						class="flex-1 cursor-pointer rounded-lg px-3 py-2 text-center transition-all duration-150 ease-in-out"
+					>
+						<input
+							type="radio"
+							name="foodOption"
+							value="veg_and_meat"
+							class="hidden"
+							checked={selectedFoodOption === 'veg_and_meat'}
+							onchange={() => {
+								selectedFoodOption = 'veg_and_meat';
+								setFields('foodOption', 'veg_and_meat');
+							}}
+						/>
+						<span
+							class="block rounded-lg border px-3 py-2"
+							class:bg-ribbook-pink={selectedFoodOption === 'veg_and_meat'}
+							class:border-dark-gray={selectedFoodOption === 'veg_and_meat'}
+							class:bg-gray-100={selectedFoodOption !== 'veg_and_meat'}
+							class:text-gray-700={selectedFoodOption !== 'veg_and_meat'}
+							class:border-gray-100={selectedFoodOption !== 'veg_and_meat'}
 						>
+							Vega + vlees
+						</span>
 					</label>
 				</div>
 				{#if $errors.foodOption}
