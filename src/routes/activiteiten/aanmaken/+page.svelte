@@ -50,6 +50,7 @@
 
 	let isDragover = $state(false);
 	let imageUpload = $state<ImageUpload | null>(null);
+	let defaultDateTime = $state('');
 
 	let fileInput: HTMLInputElement | null = null;
 
@@ -59,6 +60,15 @@
 		},
 		extend: validator({ schema: eventSchema })
 	});
+
+	function toDateTimeLocalValue(date: Date): string {
+		const year = date.getFullYear();
+		const month = String(date.getMonth() + 1).padStart(2, '0');
+		const day = String(date.getDate()).padStart(2, '0');
+		const hours = String(date.getHours()).padStart(2, '0');
+		const minutes = String(date.getMinutes()).padStart(2, '0');
+		return `${year}-${month}-${day}T${hours}:${minutes}`;
+	}
 
 	function addDrink() {
 		const drink = newDrink.trim();
@@ -177,8 +187,14 @@
 	}
 
 	onMount(() => {
+		const initialDate = new Date();
+		initialDate.setDate(initialDate.getDate() + 2);
+		initialDate.setHours(18, 0, 0, 0);
+		defaultDateTime = toDateTimeLocalValue(initialDate);
+
 		setFields('deadlineInHoursToEvent', 2);
 		setFields('foodOption', 'no_food');
+		setFields('date', defaultDateTime);
 		selectedFoodOption = 'no_food';
 	});
 </script>
@@ -311,8 +327,10 @@
 			<div>
 				<label for="date">Datum en tijd</label>
 				<input
+					id="date"
 					name="date"
 					type="datetime-local"
+					bind:value={defaultDateTime}
 					class="w-full rounded-md border border-gray-300 p-2"
 				/>
 				{#if $errors.date}
