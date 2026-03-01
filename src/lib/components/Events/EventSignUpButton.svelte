@@ -11,8 +11,34 @@
 
 	let isSignedUp = $state(false);
 	let pendingRequest = $state(true);
+	let now = $state(new Date());
 
-	const deadlineHasPassed = $derived(new Date(event.signupDeadline) < new Date());
+	const signupDeadline = $derived(new Date(event.signupDeadline));
+	const deadlineHasPassed = $derived(signupDeadline.getTime() <= now.getTime());
+
+	const countdownText = $derived.by(() => {
+		if (deadlineHasPassed) return '';
+
+		const msRemaining = signupDeadline.getTime() - now.getTime();
+		const totalMinutes = Math.floor(msRemaining / 60000);
+		const hours = Math.floor(totalMinutes / 60);
+		const minutes = totalMinutes % 60;
+		const isToday = signupDeadline.toDateString() === now.toDateString();
+
+		if (isToday || totalMinutes < 24 * 60) {
+			return `${hours} uur, ${minutes} min`;
+		}
+
+		const days = Math.floor(totalMinutes / (24 * 60));
+		const remainingHours = Math.floor((totalMinutes - days * 24 * 60) / 60);
+		const dayLabel = days === 1 ? 'dag' : 'dagen';
+
+		if (remainingHours === 0) {
+			return `${days} ${dayLabel}`;
+		}
+
+		return `${days} ${dayLabel}, ${remainingHours} uur`;
+	});
 
 	const buttonColor = $derived.by(() => {
 		if (deadlineHasPassed) return 'bg-gray-400 cursor-not-allowed';
@@ -23,7 +49,7 @@
 		if (isSignedUp && !deadlineHasPassed) {
 			return {
 				top: 'Je bent aangemeld :) Aanpassen of afmelden?',
-				bottom: 'Kan nog tot',
+				bottom: 'Kan nog',
 				showTime: true
 			};
 		}
@@ -55,10 +81,20 @@
 		return { top: 'huh', bottom: 'idk', showTime: false };
 	});
 
-	onMount(async () => {
-		pendingRequest = true;
-		isSignedUp = await eventsStore.userAlreadySignedUp(event);
-		pendingRequest = false;
+	onMount(() => {
+		const intervalId = window.setInterval(() => {
+			now = new Date();
+		}, 30000);
+
+		(async () => {
+			pendingRequest = true;
+			isSignedUp = await eventsStore.userAlreadySignedUp(event);
+			pendingRequest = false;
+		})();
+
+		return () => {
+			window.clearInterval(intervalId);
+		};
 	});
 
 	function goToSignUp() {
@@ -78,10 +114,7 @@
 			<span class="text-ribbook-yellow text-sm"
 				>{buttonText.bottom}
 				{#if buttonText.showTime}
-					{new Date(event.signupDeadline).toLocaleTimeString('nl-NL', {
-						hour: '2-digit',
-						minute: '2-digit'
-					})}
+					{countdownText}
 				{/if}
 			</span>
 		</button>
