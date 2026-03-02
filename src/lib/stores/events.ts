@@ -14,6 +14,7 @@ import {
 	updateDoc,
 	where,
 	deleteField,
+	deleteDoc,
 	type DocumentSnapshot,
 	type QueryConstraint,
 	addDoc
@@ -273,6 +274,22 @@ function createEventsStore() {
 
 			await addDoc(eventsCollection, eventPayload);
 			await this.refreshEvents();
+		},
+
+		async deleteEvent(eventId: string) {
+			try {
+				await deleteDoc(doc(DB, 'events', eventId));
+				store.update((state) => {
+					const remainingEvents = state.events.filter((event) => event.docID !== eventId);
+					return {
+						...state,
+						events: remainingEvents,
+						filteredEvents: filterEvents(remainingEvents, state.searchQuery)
+					};
+				});
+			} catch (error) {
+				console.error('Error deleting event:', error);
+			}
 		},
 
 		toggleSort() {

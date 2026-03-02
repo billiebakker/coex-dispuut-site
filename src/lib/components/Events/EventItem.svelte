@@ -1,6 +1,7 @@
 <script lang="ts">
 	import { goto } from '$app/navigation';
-	import type { EventItem as EventData } from '$lib/stores/events';
+	import { eventsStore, type EventItem as EventData } from '$lib/stores/events';
+	import { userStore } from '$lib/stores/user';
 
 	interface Props {
 		event: EventData;
@@ -35,16 +36,39 @@
 	function goToEventDetail() {
 		goto(`/activiteiten/${event.docID}`);
 	}
+
+	const canDeleteEvent = $derived(
+		event.uid === $userStore.currentUser?.uid || $userStore.userProfile?.role === 'admin'
+	);
+
+	async function removeEvent() {
+		if (!canDeleteEvent) return;
+		const confirmed = window.confirm('deze echt verwijderen?');
+		if (!confirmed) return;
+		await eventsStore.deleteEvent(event.docID);
+	}
 </script>
 
 <section
-	class="outline-ribbook-yellow flex w-full max-w-[520px] flex-col items-center rounded-xl bg-white outline-3"
+	class="outline-ribbook-yellow flex w-full max-w-130 flex-col items-center rounded-xl bg-white outline-3"
 	onclick={goToEventDetail}
 	onkeydown={(event) => (event.key === 'Enter' || event.key === ' ') && goToEventDetail()}
 	role="button"
 	tabindex="0"
 >
-	<header class="inline-flex w-full flex-col items-end gap-1 px-2 py-1.5">
+	<header class="relative inline-flex w-full flex-col items-end gap-1 px-2 py-1.5">
+		{#if canDeleteEvent}
+			<button
+				onclick={(clickEvent) => {
+					clickEvent.stopPropagation();
+					removeEvent();
+				}}
+				class="hover:bg-bg-light absolute top-1 left-2 flex h-10 w-10 items-center justify-center rounded-full transition-all duration-200 ease-in-out"
+				aria-label="Verwijder activiteit"
+			>
+				<span class="material-symbols-rounded icon icon-gray">delete</span>
+			</button>
+		{/if}
 		<p class="text-main-medium-gray text-sm font-normal">
 			{new Date(event.date).toLocaleDateString('nl-NL', {
 				weekday: 'long',
