@@ -64,7 +64,10 @@
 		</div>
 		{#if canDeletePost}
 			<button
-				onclick={removePost}
+				onclick={(event) => {
+					event.stopPropagation();
+					removePost();
+				}}
 				class="hover:bg-bg-light mr-6 flex h-10 w-10 items-center justify-center rounded-full transition-all duration-200 ease-in-out"
 				aria-label="Verwijder post"
 			>
