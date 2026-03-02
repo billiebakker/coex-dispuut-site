@@ -1,7 +1,7 @@
 <script>
 	import { page } from '$app/state';
 
-	const topRoutes = ['/home', '/activiteiten', '/account'];
+	const topRoutes = ['/home', '/activiteiten', '/account', '/admin/users'];
 
 	const showBackButton = $derived(!topRoutes.includes(page.url.pathname));
 
@@ -13,6 +13,7 @@
 		if (page.url.pathname === '/home') return 'Home';
 		if (page.url.pathname.startsWith('/activiteiten')) return 'Activiteiten';
 		if (page.url.pathname === '/account') return 'Account';
+		if (page.url.pathname.startsWith('/admin/users')) return 'Gebruikers';
 		return 'Ribbook';
 	});
 </script>

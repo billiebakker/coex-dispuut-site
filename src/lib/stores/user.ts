@@ -4,11 +4,14 @@ import {
 	registerUser,
 	signinUser,
 	updateUserProfile as fbUpdateUserProfile,
+	listAllUsers,
+	adminUpdateUser,
+	adminDeleteUser,
 	logout as fbLogout,
 	useAuthListener
 } from '$lib/firebase/client/auth.client';
 import type { User } from 'firebase/auth';
-import type { UserProfile } from '$lib/firebase/client/auth.client';
+import type { AdminUserProfile, UserProfile } from '$lib/firebase/client/auth.client';
 
 interface UserState {
 	authReady: boolean;
@@ -58,6 +61,18 @@ function createUserStore() {
 			store.update((s) => ({ ...s, userProfile: newProfile }));
 		},
 
+		async listUsers() {
+			return await listAllUsers();
+		},
+
+		async adminUpdateUserProfile(userId: string, updates: Partial<UserProfile>) {
+			return await adminUpdateUser(userId, updates);
+		},
+
+		async adminDeleteUserProfile(userId: string) {
+			await adminDeleteUser(userId);
+		},
+
 		async logout() {
 			await fbLogout();
 			store.set({
@@ -95,3 +110,4 @@ function createUserStore() {
 }
 
 export const userStore = createUserStore();
+export type { AdminUserProfile };

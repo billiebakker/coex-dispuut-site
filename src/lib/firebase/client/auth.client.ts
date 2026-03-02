@@ -8,7 +8,7 @@ import {
 	onAuthStateChanged,
 	type User
 } from 'firebase/auth';
-import { doc, getDoc, setDoc, updateDoc, collection } from 'firebase/firestore';
+import { doc, getDoc, getDocs, setDoc, updateDoc, deleteDoc, collection } from 'firebase/firestore';
 
 import { goto } from '$app/navigation';
 
@@ -30,6 +30,10 @@ export interface UserProfile {
 	email: string;
 	photoURL?: string;
 	allergies?: string;
+}
+
+export interface AdminUserProfile extends UserProfile {
+	uid: string;
 }
 
 export async function loadUserProfile(uid: string): Promise<UserProfile | null> {
@@ -77,6 +81,33 @@ export async function updateUserProfile(updates: Partial<UserProfile>, user: Use
 
 export async function logout() {
 	await signOut(AUTH);
+}
+
+export async function listAllUsers(): Promise<AdminUserProfile[]> {
+	const snapshot = await getDocs(collection(DB, 'users'));
+	const users = snapshot.docs.map((docSnap) => ({
+		uid: docSnap.id,
+		...(docSnap.data() as UserProfile)
+	}));
+
+	return users.sort((a, b) => {
+		const aName = (a.displayName || a.name || '').toLowerCase();
+		const bName = (b.displayName || b.name || '').toLowerCase();
+		return aName.localeCompare(bName);
+	});
+}
+
+export async function adminUpdateUser(userId: string, updates: Partial<UserProfile>) {
+	const userDoc = doc(DB, 'users', userId);
+	await updateDoc(userDoc, updates);
+	const updated = await loadUserProfile(userId);
+	if (!updated) return null;
+	return { uid: userId, ...updated } satisfies AdminUserProfile;
+}
+
+export async function adminDeleteUser(userId: string) {
+	const userDoc = doc(DB, 'users', userId);
+	await deleteDoc(userDoc);
 }
 
 export function useAuthListener(callback: (user: User | null) => void) {

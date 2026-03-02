@@ -1,10 +1,12 @@
 <script lang="ts">
 	import { page } from '$app/stores';
-	const userLoggedIn = true; // TODO : check if user is logged in
+	import { userStore } from '$lib/stores/user';
 
 	const isHomeRoute = $derived($page.url.pathname === '/home');
 	const isEventsRoute = $derived($page.url.pathname.startsWith('/activiteiten'));
 	const isAccountRoute = $derived($page.url.pathname === '/account');
+	const isAdminUsersRoute = $derived($page.url.pathname.startsWith('/admin/users'));
+	const isAdmin = $derived($userStore.userProfile?.role === 'admin');
 </script>
 
 <div
@@ -43,5 +45,17 @@
 				<span class="icon icon-40 icon-yellow icon-filled">Person</span>
 			</div>
 		</a>
+
+		{#if isAdmin}
+			<a href="/admin/users" class="flex h-full flex-1 flex-col items-center justify-center gap-4">
+				<div
+					class="flex h-13 w-28 items-center justify-center gap-2.5 rounded-full transition-all duration-200 ease-in-out
+					{isAdminUsersRoute ? 'bg-white/20' : ''}
+					{isAdminUsersRoute ? 'hover:bg-white/20' : 'hover:bg-white/30'}"
+				>
+					<span class="icon icon-40 icon-yellow icon-filled">Settings</span>
+				</div>
+			</a>
+		{/if}
 	</nav>
 </div>
