@@ -15,6 +15,17 @@
 			.max(400, 'Post is te lang, maximaal 400 karakters!')
 	});
 
+	function buildSearchTerms(...values: string[]): string[] {
+		const normalized = values
+			.map((value) => value.toLowerCase().replace(/[^\p{L}\p{N}\s]/gu, ' '))
+			.join(' ');
+
+		return Array.from(new Set(normalized.split(/\s+/).filter((token) => token.length >= 2))).slice(
+			0,
+			50
+		);
+	}
+
 	let showAlert = $state(false);
 	let alertVariant = $state('bg-blue-800');
 	let alertMessage = $state('');
@@ -49,6 +60,7 @@
 			const post = {
 				postText,
 				postTextLower: postText.toLowerCase(),
+				searchTerms: buildSearchTerms(postText, userDisplayName),
 				datePosted: new Date().toISOString(),
 				uid: user.uid,
 				userDisplayName,

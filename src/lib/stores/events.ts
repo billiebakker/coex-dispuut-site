@@ -80,10 +80,33 @@ interface NewEventValues {
 }
 
 const SEARCH_RESULTS_LIMIT = 25;
+const MAX_SEARCH_TOKENS = 5;
 let searchRequestCounter = 0;
 
 function normalizeSearchValue(value: string): string {
 	return value.trim().toLowerCase();
+}
+
+function tokenizeSearchValue(value: string): string[] {
+	const normalized = normalizeSearchValue(value);
+	if (!normalized) return [];
+
+	const cleaned = normalized.replace(/[^\p{L}\p{N}\s]/gu, ' ');
+	return Array.from(new Set(cleaned.split(/\s+/).filter((token) => token.length >= 2))).slice(
+		0,
+		MAX_SEARCH_TOKENS
+	);
+}
+
+function buildSearchTerms(...values: string[]): string[] {
+	const normalized = values
+		.map((value) => value.toLowerCase().replace(/[^\p{L}\p{N}\s]/gu, ' '))
+		.join(' ');
+
+	return Array.from(new Set(normalized.split(/\s+/).filter((token) => token.length >= 2))).slice(
+		0,
+		80
+	);
 }
 
 function mapEventDoc(docSnap: DocumentSnapshot): EventItem {
@@ -237,6 +260,7 @@ function createEventsStore() {
 				headerImage: values.headerImage,
 				location,
 				locationLower: location.toLowerCase(),
+				searchTerms: buildSearchTerms(title, description, location, userDisplayName),
 				datePosted: new Date().toISOString(),
 				userDisplayName,
 				userDisplayNameLower: userDisplayName.toLowerCase(),
@@ -351,6 +375,7 @@ function createEventsStore() {
 
 		async searchEvents(searchQuery: string, requestId: number) {
 			const normalizedQuery = normalizeSearchValue(searchQuery);
+			const searchTokens = tokenizeSearchValue(searchQuery);
 
 			if (!normalizedQuery) {
 				store.update((state) => ({
@@ -388,24 +413,31 @@ function createEventsStore() {
 					limit(SEARCH_RESULTS_LIMIT)
 				);
 
-				const [titleSnapshot, descriptionSnapshot, locationSnapshot] = await Promise.all([
+				const tokenQueries = searchTokens.map((token) =>
+					query(
+						eventsCollection,
+						where('searchTerms', 'array-contains', token),
+						limit(SEARCH_RESULTS_LIMIT)
+					)
+				);
+
+				const snapshots = await Promise.all([
 					getDocs(titleQuery),
 					getDocs(descriptionQuery),
-					getDocs(locationQuery)
+					getDocs(locationQuery),
+					...tokenQueries.map((tokenQuery) => getDocs(tokenQuery))
 				]);
 
 				if (requestId !== searchRequestCounter) return;
 
 				const docsById = new Map<string, EventItem>();
-				for (const docSnap of [
-					...titleSnapshot.docs,
-					...descriptionSnapshot.docs,
-					...locationSnapshot.docs
-				]) {
-					docsById.set(docSnap.id, mapEventDoc(docSnap));
+				for (const snapshot of snapshots) {
+					for (const docSnap of snapshot.docs) {
+						docsById.set(docSnap.id, mapEventDoc(docSnap));
+					}
 				}
 
-				const searchResults = Array.from(docsById.values()).sort(
+				const searchResults = filterEvents(Array.from(docsById.values()), searchQuery).sort(
 					(a, b) => new Date(a.date).getTime() - new Date(b.date).getTime()
 				);
 

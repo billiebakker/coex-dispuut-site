@@ -7,6 +7,7 @@ import {
 	startAfter,
 	startAt,
 	endAt,
+	where,
 	getDocs,
 	getDoc,
 	updateDoc,
@@ -45,6 +46,7 @@ interface PostsState {
 
 const POSTS_PER_PAGE = 10;
 const SEARCH_RESULTS_LIMIT = 25;
+const MAX_SEARCH_TOKENS = 5;
 
 let searchRequestCounter = 0;
 
@@ -61,6 +63,18 @@ function filterPosts(posts: Post[], searchQuery: string): Post[] {
 
 function normalizeSearchValue(value: string): string {
 	return value.trim().toLowerCase();
+}
+
+function tokenizeSearchValue(value: string): string[] {
+	const normalized = normalizeSearchValue(value);
+	if (!normalized) return [];
+
+	// ??? regex lastig (remove alle whitespace en special chars)
+	const cleaned = normalized.replace(/[^\p{L}\p{N}\s]/gu, ' ');
+	return Array.from(new Set(cleaned.split(/\s+/).filter((token) => token.length >= 2))).slice(
+		0,
+		MAX_SEARCH_TOKENS
+	);
 }
 
 async function getCurrentUserId(): Promise<string | null> {
@@ -190,6 +204,7 @@ function createPostsStore() {
 
 		async searchPosts(searchQuery: string, requestId: number) {
 			const normalizedQuery = normalizeSearchValue(searchQuery);
+			const searchTokens = tokenizeSearchValue(searchQuery);
 
 			if (!normalizedQuery) {
 				store.update((state) => ({
@@ -221,37 +236,48 @@ function createPostsStore() {
 					limit(SEARCH_RESULTS_LIMIT)
 				);
 
-				const [textSnapshot, displayNameSnapshot] = await Promise.all([
+				const tokenQueries = searchTokens.map((token) =>
+					query(
+						collection(DB, 'posts'),
+						where('searchTerms', 'array-contains', token),
+						limit(SEARCH_RESULTS_LIMIT)
+					)
+				);
+
+				const snapshots = await Promise.all([
 					getDocs(postTextQuery),
-					getDocs(displayNameQuery)
+					getDocs(displayNameQuery),
+					...tokenQueries.map((tokenQuery) => getDocs(tokenQuery))
 				]);
 
 				if (requestId !== searchRequestCounter) return;
 
 				const docsById = new Map<string, Post>();
 
-				for (const docSnap of [...textSnapshot.docs, ...displayNameSnapshot.docs]) {
-					const data = docSnap.data();
-					const liked = currentUser ? data.reactions?.[currentUser] === 'like' : false;
-					const disliked = currentUser ? data.reactions?.[currentUser] === 'dislike' : false;
+				for (const snapshot of snapshots) {
+					for (const docSnap of snapshot.docs) {
+						const data = docSnap.data();
+						const liked = currentUser ? data.reactions?.[currentUser] === 'like' : false;
+						const disliked = currentUser ? data.reactions?.[currentUser] === 'dislike' : false;
 
-					docsById.set(docSnap.id, {
-						docID: docSnap.id,
-						postText: data.postText,
-						userDisplayName: data.userDisplayName || 'Onbekend',
-						userPhotoURL: data.userPhotoURL || null,
-						datePosted: data.datePosted,
-						commentCount: data.commentCount || 0,
-						likeCount: data.likeCount || 0,
-						dislikeCount: data.dislikeCount || 0,
-						uid: data.uid,
-						reactions: data.reactions || {},
-						liked,
-						disliked
-					});
+						docsById.set(docSnap.id, {
+							docID: docSnap.id,
+							postText: data.postText,
+							userDisplayName: data.userDisplayName || 'Onbekend',
+							userPhotoURL: data.userPhotoURL || null,
+							datePosted: data.datePosted,
+							commentCount: data.commentCount || 0,
+							likeCount: data.likeCount || 0,
+							dislikeCount: data.dislikeCount || 0,
+							uid: data.uid,
+							reactions: data.reactions || {},
+							liked,
+							disliked
+						});
+					}
 				}
 
-				const searchResults = Array.from(docsById.values()).sort(
+				const searchResults = filterPosts(Array.from(docsById.values()), searchQuery).sort(
 					(a, b) => new Date(b.datePosted).getTime() - new Date(a.datePosted).getTime()
 				);
 
