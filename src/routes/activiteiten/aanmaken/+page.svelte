@@ -5,7 +5,7 @@
 	import * as yup from 'yup';
 	import imageCompression from 'browser-image-compression';
 	import { getDownloadURL, ref, uploadBytesResumable, type UploadTask } from 'firebase/storage';
-	import { storage } from '$lib/firebase/client/config.client';
+	import { storage } from '$lib/firebase/client/storage.client';
 	import { eventsStore, type FoodOption } from '$lib/stores/events';
 	import { onMount } from 'svelte';
 

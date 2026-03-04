@@ -14,9 +14,9 @@ import {
 	doc,
 	increment,
 	deleteField,
-	deleteDoc,
-	DocumentSnapshot
+	deleteDoc
 } from 'firebase/firestore';
+import type { DocumentSnapshot } from 'firebase/firestore';
 import { DB } from '$lib/firebase/client/config.client';
 import { userStore } from './user';
 

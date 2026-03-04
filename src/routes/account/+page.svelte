@@ -5,7 +5,7 @@
 	import { validator } from '@felte/validator-yup';
 	import * as yup from 'yup';
 	import ProfilePicture from '$lib/components/common/ProfilePicture.svelte';
-	import { storage } from '$lib/firebase/client/config.client';
+	import { storage } from '$lib/firebase/client/storage.client';
 	import { ref, uploadBytes, getDownloadURL } from 'firebase/storage';
 
 	let showAlert = $state(false);
